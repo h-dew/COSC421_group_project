@@ -1,2 +1,8 @@
 # COSC421_group_project
-Group project for networks class.
+
+
+# Project Ideas
+
+- Car crash data from ICBC
+- Cycling route optimization
+- 
