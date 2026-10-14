@@ -1,3 +1,6 @@
+# MacOS moment
+.DS_Store
+
 # History files
 .Rhistory
 .Rapp.history
@@ -47,3 +50,7 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Dataset (too large :<<)
+!/dataset/placedataset_here.txt
+/dataset/*
