@@ -52,5 +52,5 @@ po/*~
 rsconnect/
 
 # Dataset (too large :<<)
-!/dataset/placedataset_here.txt
 /dataset/*
+!/dataset/placedataset_here.txt
