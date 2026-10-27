@@ -1,0 +1,2 @@
+- figure out osmdata importing
+- determine values that two data sources can be unioned with
