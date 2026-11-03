@@ -51,6 +51,6 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# Dataset (too large :<<)
-/dataset/*
-!/dataset/placedataset_here.txt
+# Dataset (too large :<<) -> Let's talk about this together later. We all need to access the same dataset?
+ /dataset/*
+ !/dataset/placedataset_here.txt
