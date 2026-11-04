@@ -19,6 +19,9 @@ Tasks will be broken into separate scripts. These include:
 ## Folder Layout
 
  `/data/`               - source data
+ 
  `/data/cleaned`        - clean data
+ 
  `/data/preprocessed/`  - preprocessed data
+ 
  `/output/`             - plots, report
