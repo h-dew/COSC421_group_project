@@ -1,13 +1,13 @@
 #' COSC 421 Project - Data cleaning script.
 #'
-#' Input : dataset/Southern Interior_Full Data_data.csv
+#' Input : dataset/SouthernInterior_FullData_data.csv
 #'
 #' Output: dataset/clean/crashes_kel_kam.csv
 
 library(data.table)
 
 # Settings:
-RAW_FILE   <- "dataset/Southern Interior_Full Data_data.csv"
+RAW_FILE   <- "dataset/SouthernInterior_FullData_data.csv"
 CLEAN_FILE <- "dataset/clean/crashes_kel_kam.csv"
 CITIES     <- c("KELOWNA", "KAMLOOPS")
 YEARS      <- 2021:2025
