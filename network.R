@@ -24,7 +24,7 @@ MAX_EDGE_KM <- 2   # edges longer than this are removed (I don't think they're r
 crashes <- fread(CLEAN_FILE, na.strings = c("", "NA"))
 
 # Checking that it matches data_cleaning.R (Kelowna 20,113 / Kamloops 10,187)
-crashes[!is.na(intersection), .(at_intersection = sum(n_crashes)), by = city]
+crashes[!is.na(intersection), list(at_intersection = sum(n_crashes)), by = city]
 
 
 # Nodes:
@@ -34,47 +34,48 @@ with_coords <- crashes[!is.na(intersection) & !is.na(lat) & !is.na(lon)]
 
 # How many intersection crashes have no coordinates?
 crashes[!is.na(intersection),
-        .(intersection_crashes = sum(n_crashes),
-          no_coordinates       = sum(n_crashes[is.na(lat) | is.na(lon)])), by = city]
+        list(intersection_crashes = sum(n_crashes), no_coordinates = sum(n_crashes[is.na(lat) | is.na(lon)])), by = city]
 
 # One row per intersection name
-names_table <- with_coords[, .(lat       = median(lat),
-                               lon       = median(lon),
-                               n_crashes = sum(n_crashes)),
-                           by = .(city, intersection)]
+# (median position is used in case the same name was recorded at slightly different spots)
+names_table <- with_coords[, list(lat = median(lat), lon = median(lon), n_crashes = sum(n_crashes)), by = list(city, intersection)]
 
 # Some corners have 2+ names (ex. "DILWORTH DR & HARVEY AVE" and "DILWORTH DR & HWY 97 N").
-# Names at the same coordinates (to ~10 m) are merged into one node.
-names_table[, node_id := .GRP, by = .(city, round(lat, 4), round(lon, 4))]
+# Names at the same coordinates (to approx. 10 m) are merged into one node.
+# How this works: rows are grouped by city and rounded lat/lon, and each group is assigned 
+# a node_id with .GRP. Names in the same group are given the same id.
+names_table[, node_id := .GRP, by = list(city, round(lat, 4), round(lon, 4))]
 
-# How many nodes had more than one name?
-names_table[, .N, by = node_id][N > 1, .N]
+# How many nodes had more than one name? (count names per node_id (.N), keep nodes with N > 1)
+names_per_node <- names_table[, .N, by = node_id]
+names_per_node[N > 1, .N]
 
 # Adding the node_id to every crash
-with_coords <- merge(with_coords, names_table[, .(city, intersection, node_id)],
+# This also matches each crash to its row in names_table (uses city + intersection)
+with_coords <- merge(with_coords, names_table[, list(city, intersection, node_id)],
                      by = c("city", "intersection"))
 
 # Crash totals for each node
-nodes <- with_coords[, .(n_crashes  = sum(n_crashes),
+nodes <- with_coords[, list(n_crashes  = sum(n_crashes),
                          casualty   = sum(n_crashes[severity == "CASUALTY CRASH"]),
                          cyclist    = sum(n_crashes[cyclist == "Yes"]),
                          pedestrian = sum(n_crashes[pedestrian == "Yes"]),
                          lat        = median(lat),
                          lon        = median(lon)),
-                     by = .(node_id, city)]
+                     by = list(node_id, city)]
 
 # Each node is labelled with its name that has the most crashes
-node_labels <- names_table[order(-n_crashes), .(label = intersection[1]), by = node_id]
+node_labels <- names_table[order(-n_crashes), list(label = intersection[1]), by = node_id]
 nodes <- merge(nodes, node_labels, by = "node_id")
 
 
 # Edges:
 
 # Every street that passes through each node
-streets_at_node <- unique(rbind(with_coords[, .(node_id, city, street = street)],
-                                with_coords[, .(node_id, city, street = cross_street)]))
+streets_at_node <- unique(rbind(with_coords[, list(node_id, city, street = street)],
+                                with_coords[, list(node_id, city, street = cross_street)]))
 streets_at_node <- streets_at_node[!is.na(street)]
-streets_at_node <- merge(streets_at_node, nodes[, .(node_id, lat, lon)], by = "node_id")
+streets_at_node <- merge(streets_at_node, nodes[, list(node_id, lat, lon)], by = "node_id")
 
 # Distance in km between two points (online formula - "haversine")
 km_between <- function(lat1, lon1, lat2, lon2) {
@@ -114,9 +115,9 @@ edges <- rbindlist(lapply(streets_list, link_street))
 # Graphs for Kelowna and Kamloops:
 
 make_graph <- function(city_name) {
-  v <- nodes[city == city_name, .(name = as.character(node_id), label, n_crashes,
+  v <- nodes[city == city_name, list(name = as.character(node_id), label, n_crashes,
                                   casualty, cyclist, pedestrian, lat, lon)]
-  e <- edges[city == city_name, .(from = as.character(from), to = as.character(to),
+  e <- edges[city == city_name, list(from = as.character(from), to = as.character(to),
                                   street, km)]
   g <- graph_from_data_frame(e, directed = FALSE, vertices = v)
 
