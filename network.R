@@ -26,7 +26,6 @@ crashes <- fread(CLEAN_FILE, na.strings = c("", "NA"))
 # Checking that it matches data_cleaning.R (Kelowna 20,113 / Kamloops 10,187)
 crashes[!is.na(intersection), list(at_intersection = sum(n_crashes)), by = city]
 
-
 # Nodes:
 
 # Only intersections with coordinates can be placed on the network
@@ -54,22 +53,24 @@ names_per_node[N > 1, .N]
 # This also matches each crash to its row in names_table (uses city + intersection)
 with_coords <- merge(with_coords, names_table[, list(city, intersection, node_id)],
                      by = c("city", "intersection"))
+# add months to with coords table 
+with_coords[, month_num := match(trimws(toupper(month)), toupper(month.name))]
 
-# Crash totals for each node
+stopifnot(!anyNA(with_coords$month_num))
+month_cols <- sprintf("m%02d", 1:12)
 nodes <- with_coords[, list(n_crashes  = sum(n_crashes),
-                         casualty   = sum(n_crashes[severity == "CASUALTY CRASH"]),
-                         cyclist    = sum(n_crashes[cyclist == "Yes"]),
-                         pedestrian = sum(n_crashes[pedestrian == "Yes"]),
-                         lat        = median(lat),
-                         lon        = median(lon)),
+                            casualty   = sum(n_crashes[severity == "CASUALTY CRASH"]),
+                            cyclist    = sum(n_crashes[cyclist == "Yes"]),
+                            pedestrian = sum(n_crashes[pedestrian == "Yes"]),
+                            lat        = median(lat),
+                            lon        = median(lon)),
                      by = list(node_id, city)]
-
-# Each node is labelled with its name that has the most crashes
+#create counts of crashes by month, adding in combined crashes
+month_counts <- with_coords[, lapply(1:12, function(k) sum(n_crashes[month_num == k])), by = node_id]
+setnames(month_counts, c("node_id", month_cols))
 node_labels <- names_table[order(-n_crashes), list(label = intersection[1]), by = node_id]
 nodes <- merge(nodes, node_labels, by = "node_id")
-
-
-# Edges:
+nodes <- merge(nodes, month_counts, by = "node_id") 
 
 # Every street that passes through each node
 streets_at_node <- unique(rbind(with_coords[, list(node_id, city, street = street)],
@@ -111,12 +112,15 @@ link_street <- function(s) {
 streets_list <- split(streets_at_node, by = c("city", "street"))
 edges <- rbindlist(lapply(streets_list, link_street))
 
-
 # Graphs for Kelowna and Kamloops:
 
 make_graph <- function(city_name) {
-  v <- nodes[city == city_name, list(name = as.character(node_id), label, n_crashes,
-                                  casualty, cyclist, pedestrian, lat, lon)]
+  # filter to city
+  v <- nodes[city == city_name]
+  v[, name := as.character(node_id)]
+  #should maybe be changed to include attributes as a default, instead of ahving to list them here?
+  v <- v[, c("name", "label", "n_crashes", "casualty", "cyclist",
+             "pedestrian", "lat", "lon", month_cols), with = FALSE]
   e <- edges[city == city_name, list(from = as.character(from), to = as.character(to),
                                   street, km)]
   g <- graph_from_data_frame(e, directed = FALSE, vertices = v)
@@ -156,8 +160,16 @@ top5_degree <- function(g) {
 top5_degree(g_kel)
 top5_degree(g_kam)
 
+month_analysis <- function(g) {
+  m <- as.data.table(vertex_attr(g))[, ..month_cols]
+  list(
+    total_by_month = colSums(m),                       # city-wide crashes per month
+    peak_month     = table(month_cols[max.col(m, ties.method = "first")])  # peak month per node
+  )
+}
 
-# Network maps (node size = crashes):
+month_analysis(g_kel)
+month_analysis(g_kam)
 
 plot_city <- function(g, title, file, zoom = FALSE) {
 
